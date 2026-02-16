@@ -256,6 +256,7 @@ var fileNameMap = {
   viewmodel:  function(n) { return n + 'ViewModel.cs'; },
   di:         function() { return 'MauiProgram.cs (snippet)'; },
   route:      function() { return 'AppShell.xaml.cs (snippet)'; }
+  shell: function(n) { return 'install_' + n + '.sh'; }
 };
 
 document.getElementById('tabBar').addEventListener('click', function(e) {
@@ -373,7 +374,7 @@ function generateXaml(ns, name, parts) {
 
 
 // ============================================================
-// Generate View.xaml.cs  (matches ShowcaseView pattern)
+// Generate View.xaml.cs
 // ============================================================
 function generateCodeBehind(ns, name, bd) {
   var lines = [];
@@ -390,7 +391,7 @@ function generateCodeBehind(ns, name, bd) {
   lines.push('public partial class ' + name + 'View : ContentPage');
   lines.push('{');
 
-  // Constructor - parameterless like ShowcaseView
+  // Constructor - parameterless
   lines.push('    public ' + name + 'View()');
   lines.push('    {');
   lines.push('        InitializeComponent();');
@@ -537,7 +538,7 @@ function generateRouteSnippet(name) {
 
 
 // ============================================================
-// Master generate
+// Generate all
 // ============================================================
 function generate() {
   var ns = document.getElementById('ns').value;
@@ -560,6 +561,7 @@ function generate() {
   generatedOutputs.viewmodel  = generateViewModel(ns, name, bd);
   generatedOutputs.di         = generateDiSnippet(ns, name);
   generatedOutputs.route      = generateRouteSnippet(name);
+  generatedOutputs.shell = generateShellScript(ns, name);
 
   showActiveTab();
 }
@@ -575,4 +577,60 @@ function copyOutput() {
     btn.textContent = 'Copied!';
     setTimeout(function(){ btn.textContent = 'Copy'; }, 1500);
   });
+}
+
+
+// ============================================================
+// Script generator
+// ============================================================
+function generateShellScript(ns, name) {
+  var viewDir = 'Views/' + name + 'Views';
+  var esc = function(s) { return s.replace(/'/g, "'\\''"); };
+
+  var lines = [
+    '#!/bin/sh',
+    'set -e',
+    '',
+    '# Create view directory',
+    'mkdir -p "' + viewDir + '"',
+    '',
+    '# Write ' + name + 'View.xaml',
+    "cat > '" + viewDir + '/' + name + "View.xaml' << 'XAML_EOF'",
+    generatedOutputs.xaml,
+    'XAML_EOF',
+    '',
+    '# Write ' + name + 'View.xaml.cs',
+    "cat > '" + viewDir + '/' + name + "View.xaml.cs' << 'CS_EOF'",
+    generatedOutputs.codebehind,
+    'CS_EOF',
+    '',
+    '# Write ' + name + 'ViewModel.cs',
+    "cat > '" + viewDir + '/' + name + "ViewModel.cs' << 'VM_EOF'",
+    generatedOutputs.viewmodel,
+    'VM_EOF',
+    '',
+    '# Insert DI registration into MauiProgram.cs (before closing })',
+    'DI_LINE=\'' + esc('builder.Services.AddTransient<' + ns + '.Views.' + name + 'Views.' + name + 'View>();') + '\'',
+    'DI_LINE2=\'' + esc('builder.Services.AddTransient<' + ns + '.Views.' + name + 'Views.' + name + 'ViewModel>();') + '\'',
+    'if ! grep -qF "$DI_LINE" MauiProgram.cs 2>/dev/null; then',
+    '  sed -i "/ConfigureServices\\|AddTransient\\|AddSingleton/{" MauiProgram.cs',
+    '  # Manual insert - add before last closing brace:',
+    '  sed -i "/^}$/i\\        ${DI_LINE}\\n        ${DI_LINE2}" MauiProgram.cs',
+    '  echo "Added DI registrations to MauiProgram.cs"',
+    'else',
+    '  echo "DI registrations already present"',
+    'fi',
+    '',
+    '# Insert route registration into AppShell.xaml.cs',
+    'ROUTE_LINE=\'' + esc('Routing.RegisterRoute("' + name + 'View", typeof(Views.' + name + 'Views.' + name + 'View));') + '\'',
+    'if ! grep -qF "$ROUTE_LINE" AppShell.xaml.cs 2>/dev/null; then',
+    '  sed -i "/RegisterRoute/{:a;n;/RegisterRoute/ba;i\\        ${ROUTE_LINE}" AppShell.xaml.cs',
+    '  echo "Added route to AppShell.xaml.cs"',
+    'else',
+    '  echo "Route already registered"',
+    'fi',
+    '',
+    'echo "Done: ' + name + ' view scaffolded."'
+  ];
+  return lines.join('\n');
 }
