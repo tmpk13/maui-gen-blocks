@@ -253,10 +253,10 @@ var generatedOutputs = {};
 var fileNameMap = {
   xaml:       function(n) { return n + 'View.xaml'; },
   codebehind: function(n) { return n + 'View.xaml.cs'; },
-  viewmodel:  function(n) { return n + 'ViewModel.cs'; },
+  viewmodel:  function(n) { return 'ViewModels/' + n + 'ViewModel.cs'; },
   di:         function() { return 'MauiProgram.cs (snippet)'; },
   route:      function() { return 'AppShell.xaml.cs (snippet)'; },
-  shell: function(n) { return 'install_' + n + '.sh'; }
+  shell:      function(n) { return 'scaffold_' + n + '.py'; }
 };
 
 document.getElementById('tabBar').addEventListener('click', function(e) {
@@ -322,6 +322,31 @@ function collectBlockData() {
     }
   });
   return data;
+}
+
+
+// ============================================================
+// Collect block structure as JSON for reproducibility
+// ============================================================
+function collectBlockStructure() {
+  var blocks = [];
+  var topBlocks = workspace.getTopBlocks(true);
+  topBlocks.forEach(function(topBlock) {
+    var block = topBlock;
+    while (block) {
+      var entry = { type: block.type, fields: {} };
+      block.inputList.forEach(function(input) {
+        input.fieldRow.forEach(function(field) {
+          if (field.name) {
+            entry.fields[field.name] = field.getValue();
+          }
+        });
+      });
+      blocks.push(entry);
+      block = block.getNextBlock();
+    }
+  });
+  return blocks;
 }
 
 
@@ -462,7 +487,7 @@ function generateViewModel(ns, name, bd) {
     lines.push('using System.Collections.ObjectModel;');
   }
   lines.push('');
-  lines.push('namespace ' + ns + '.Views.' + name + 'Views;');
+  lines.push('namespace ' + ns + '.ViewModels;');
   lines.push('');
   lines.push('public partial class ' + name + 'ViewModel : ObservableObject');
   lines.push('{');
@@ -524,7 +549,7 @@ function generateViewModel(ns, name, bd) {
 function generateDiSnippet(ns, name) {
   return '// Add to ConfigureServices in MauiProgram.cs\n' +
 'builder.Services.AddTransient<' + ns + '.Views.' + name + 'Views.' + name + 'View>();\n' +
-'builder.Services.AddTransient<' + ns + '.Views.' + name + 'Views.' + name + 'ViewModel>();';
+'builder.Services.AddTransient<' + ns + '.ViewModels.' + name + 'ViewModel>();';
 }
 
 
@@ -561,7 +586,7 @@ function generate() {
   generatedOutputs.viewmodel  = generateViewModel(ns, name, bd);
   generatedOutputs.di         = generateDiSnippet(ns, name);
   generatedOutputs.route      = generateRouteSnippet(name);
-  generatedOutputs.shell = generateShellScript(ns, name);
+  generatedOutputs.shell      = generateScaffoldScript(ns, name);
 
   showActiveTab();
 }
@@ -581,56 +606,61 @@ function copyOutput() {
 
 
 // ============================================================
-// Script generator
+// Python scaffold script generator
 // ============================================================
-function generateShellScript(ns, name) {
+function generateScaffoldScript(ns, name) {
   var viewDir = 'Views/' + name + 'Views';
-  var esc = function(s) { return s.replace(/'/g, "'\\''"); };
+  var vmDir = 'ViewModels';
+  var blockStructure = JSON.stringify(collectBlockStructure(), null, 2);
+
+  // Escape triple quotes inside generated content (unlikely but safe)
+  var safeXaml = generatedOutputs.xaml.replace(/"""/g, '""\\"');
+  var safeCodeBehind = generatedOutputs.codebehind.replace(/"""/g, '""\\"');
+  var safeViewModel = generatedOutputs.viewmodel.replace(/"""/g, '""\\"');
 
   var lines = [
-    '#!/bin/sh',
-    'set -e',
+    '#!/usr/bin/env python3',
+    '"""Scaffold script for ' + name + ' view."""',
+    'import json',
+    'from pathlib import Path',
     '',
-    '# Create view directory',
-    'mkdir -p "' + viewDir + '"',
+    'view_dir = Path("' + viewDir + '")',
+    'vm_dir = Path("' + vmDir + '")',
+    'view_dir.mkdir(parents=True, exist_ok=True)',
+    'vm_dir.mkdir(parents=True, exist_ok=True)',
     '',
-    '# Write ' + name + 'View.xaml',
-    "cat > '" + viewDir + '/' + name + "View.xaml' << 'XAML_EOF'",
-    generatedOutputs.xaml,
-    'XAML_EOF',
+    '# -- ' + name + 'View.xaml --',
+    'view_dir.joinpath("' + name + 'View.xaml").write_text("""' + safeXaml + '""")',
     '',
-    '# Write ' + name + 'View.xaml.cs',
-    "cat > '" + viewDir + '/' + name + "View.xaml.cs' << 'CS_EOF'",
-    generatedOutputs.codebehind,
-    'CS_EOF',
+    '# -- ' + name + 'View.xaml.cs --',
+    'view_dir.joinpath("' + name + 'View.xaml.cs").write_text("""' + safeCodeBehind + '""")',
     '',
-    '# Write ' + name + 'ViewModel.cs',
-    "cat > '" + viewDir + '/' + name + "ViewModel.cs' << 'VM_EOF'",
-    generatedOutputs.viewmodel,
-    'VM_EOF',
+    '# -- ' + name + 'ViewModel.cs --',
+    'vm_dir.joinpath("' + name + 'ViewModel.cs").write_text("""' + safeViewModel + '""")',
     '',
-    '# Insert DI registration into MauiProgram.cs (before closing })',
-    'DI_LINE=\'' + esc('builder.Services.AddTransient<' + ns + '.Views.' + name + 'Views.' + name + 'View>();') + '\'',
-    'DI_LINE2=\'' + esc('builder.Services.AddTransient<' + ns + '.Views.' + name + 'Views.' + name + 'ViewModel>();') + '\'',
-    'if ! grep -qF "$DI_LINE" MauiProgram.cs 2>/dev/null; then',
-    '  sed -i "/ConfigureServices\\|AddTransient\\|AddSingleton/{" MauiProgram.cs',
-    '  # Manual insert - add before last closing brace:',
-    '  sed -i "/^}$/i\\        ${DI_LINE}\\n        ${DI_LINE2}" MauiProgram.cs',
-    '  echo "Added DI registrations to MauiProgram.cs"',
-    'else',
-    '  echo "DI registrations already present"',
-    'fi',
+    '# -- Block structure (for reproducible regeneration) --',
+    'view_dir.joinpath("' + name + '.blocks.json").write_text(json.dumps(',
+    blockStructure + ',',
+    '    indent=2',
+    '))',
     '',
-    '# Insert route registration into AppShell.xaml.cs',
-    'ROUTE_LINE=\'' + esc('Routing.RegisterRoute("' + name + 'View", typeof(Views.' + name + 'Views.' + name + 'View));') + '\'',
-    'if ! grep -qF "$ROUTE_LINE" AppShell.xaml.cs 2>/dev/null; then',
-    '  sed -i "/RegisterRoute/{:a;n;/RegisterRoute/ba;i\\        ${ROUTE_LINE}" AppShell.xaml.cs',
-    '  echo "Added route to AppShell.xaml.cs"',
-    'else',
-    '  echo "Route already registered"',
-    'fi',
+    '# ============================================================',
+    '# Manual steps required:',
+    '# ============================================================',
+    '# 1. Add to ConfigureServices in MauiProgram.cs:',
+    '#    builder.Services.AddTransient<' + ns + '.Views.' + name + 'Views.' + name + 'View>();',
+    '#    builder.Services.AddTransient<' + ns + '.ViewModels.' + name + 'ViewModel>();',
+    '#',
+    '# 2. Add to AppShell.xaml.cs constructor:',
+    '#    Routing.RegisterRoute("' + name + 'View", typeof(Views.' + name + 'Views.' + name + 'View));',
+    '# ============================================================',
     '',
-    'echo "Done: ' + name + ' view scaffolded."'
+    'print(f"Scaffolded: {view_dir / "' + name + 'View.xaml"}")',
+    'print(f"Scaffolded: {view_dir / "' + name + 'View.xaml.cs"}")',
+    'print(f"Scaffolded: {vm_dir / "' + name + 'ViewModel.cs"}")',
+    'print(f"Saved:      {view_dir / "' + name + '.blocks.json"}")',
+    'print()',
+    'print("NOTE: Manually add DI registrations and route -- see comments above.")',
   ];
   return lines.join('\n');
 }
