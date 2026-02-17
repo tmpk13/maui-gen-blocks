@@ -255,7 +255,7 @@ var fileNameMap = {
   codebehind: function(n) { return n + 'View.xaml.cs'; },
   viewmodel:  function(n) { return n + 'ViewModel.cs'; },
   di:         function() { return 'MauiProgram.cs (snippet)'; },
-  route:      function() { return 'AppShell.xaml.cs (snippet)'; }
+  route:      function() { return 'AppShell.xaml.cs (snippet)'; },
   shell: function(n) { return 'install_' + n + '.sh'; }
 };
 
