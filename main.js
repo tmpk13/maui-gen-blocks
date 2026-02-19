@@ -739,30 +739,30 @@ document.addEventListener('paste', function (e) {
 // Resize Output
 // ============================================================
 const handle = document.getElementById('resizeHandle');
-const panel  = document.querySelector('.output-panel');
+const panel = document.querySelector('.output-panel');
 
 let dragging = false;
 
 handle.addEventListener('mousedown', e => {
-  dragging = true;
-  handle.classList.add('dragging');
-  document.body.style.cursor = 'col-resize';
-  document.body.style.userSelect = 'none';
+    dragging = true;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
 });
 
 document.addEventListener('mousemove', e => {
-  if (!dragging) return;
-  const container = panel.parentElement;
-  const rect = container.getBoundingClientRect();
-  const newWidth = rect.right - e.clientX;
-  panel.style.width = Math.min(Math.max(newWidth, 180), 700) + 'px';
+    if (!dragging) return;
+    const container = panel.parentElement;
+    const rect = container.getBoundingClientRect();
+    const newWidth = rect.right - e.clientX;
+    panel.style.width = Math.min(Math.max(newWidth, 10), 1000) + 'px';
 });
 
 document.addEventListener('mouseup', () => {
-  if (!dragging) return;
-  dragging = false;
-  handle.classList.remove('dragging');
-  document.body.style.cursor = '';
-  document.body.style.userSelect = '';
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
 });
 
