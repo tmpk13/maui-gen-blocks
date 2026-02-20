@@ -31,6 +31,10 @@ Blockly.Blocks['xaml_section_label'] = {
     init: function () {
         this.appendDummyInput().appendField('SectionLabel');
         this.appendDummyInput().appendField('  Text:').appendField(new Blockly.FieldTextInput('Section Title'), 'TEXT');
+        this.appendDummyInput().appendField('  Style:').appendField(new Blockly.FieldDropdown([
+            ['HeadingLargeBold', 'HeadingLargeBold'],
+            ['HeadingMediumBold', 'HeadingMediumBold']
+        ]), 'STYLE');
         this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(42);
     }
 };
@@ -156,7 +160,7 @@ var xamlGen = {
         return '<menus:DashboardTabs ActiveTab="' + b.getFieldValue('ACTIVE') + '" />';
     },
     xaml_section_label: function (b) {
-        return '<Label Text="' + b.getFieldValue('TEXT') + '"\n       FontSize="18"\n       FontAttributes="Bold"\n       Margin="16,10,16,5" />';
+        return '<Label Text="' + b.getFieldValue('TEXT') + '"\n       Style="{StaticResource ' + b.getFieldValue('STYLE') + '}" />';
     },
     xaml_primary_button: function (b) {
         var cmd = b.getFieldValue('COMMAND');
