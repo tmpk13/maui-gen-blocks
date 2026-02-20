@@ -372,7 +372,7 @@ function toCamel(str) {
 // ============================================================
 // Generate View.xaml
 // ============================================================
-function generateXaml(ns, name, parts) {
+function generateXaml(ns, name, parts, category) {
     var components = parts.join('\n                ');
     return '<?xml version="1.0" encoding="utf-8" ?>\n' +
         '<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"\n' +
@@ -405,7 +405,7 @@ function generateXaml(ns, name, parts) {
 // ============================================================
 // Generate View.xaml.cs
 // ============================================================
-function generateCodeBehind(ns, name, bd) {
+function generateCodeBehind(ns, name, bd, category) {
     var lines = [];
     var imports = ['using System.Diagnostics;'];
 
@@ -481,7 +481,7 @@ function generateCodeBehind(ns, name, bd) {
 // ============================================================
 // Generate ViewModel.cs (MVVM Community Toolkit)
 // ============================================================
-function generateViewModel(ns, name, bd) {
+function generateViewModel(ns, name, bd, category) {
     var lines = [];
     var needsCollections = bd.lockerItems.length > 0;
 
@@ -550,7 +550,7 @@ function generateViewModel(ns, name, bd) {
 // ============================================================
 // DI snippet
 // ============================================================
-function generateDiSnippet(ns, name) {
+function generateDiSnippet(ns, name, category) {
     return '// Add to ConfigureServices in MauiProgram.cs\n' +
         'builder.Services.AddTransient<' + ns + '.Views.' + name + 'Views.' + name + 'View>();\n' +
         'builder.Services.AddTransient<' + ns + '.ViewModels.' + name + 'ViewModel>();';
@@ -560,7 +560,7 @@ function generateDiSnippet(ns, name) {
 // ============================================================
 // Route snippet
 // ============================================================
-function generateRouteSnippet(name) {
+function generateRouteSnippet(name, category) {
     return '// Add to AppShell constructor\n' +
         'Routing.RegisterRoute("' + name + 'View", typeof(Views.' + name + 'Views.' + name + 'View));';
 }
@@ -572,6 +572,8 @@ function generateRouteSnippet(name) {
 function generate() {
     var ns = document.getElementById('ns').value;
     var name = document.getElementById('vname').value;
+    var category = document.getElementById('category').value;
+
     var bd = collectBlockData();
 
     var topBlocks = workspace.getTopBlocks(true);
@@ -585,12 +587,12 @@ function generate() {
         }
     });
 
-    generatedOutputs.xaml = generateXaml(ns, name, parts);
-    generatedOutputs.codebehind = generateCodeBehind(ns, name, bd);
-    generatedOutputs.viewmodel = generateViewModel(ns, name, bd);
-    generatedOutputs.di = generateDiSnippet(ns, name);
-    generatedOutputs.route = generateRouteSnippet(name);
-    generatedOutputs.shell = generateScaffoldScript(ns, name);
+    generatedOutputs.xaml = generateXaml(ns, name, parts, category);
+    generatedOutputs.codebehind = generateCodeBehind(ns, name, bd, category);
+    generatedOutputs.viewmodel = generateViewModel(ns, name, bd, category);
+    generatedOutputs.di = generateDiSnippet(ns, name, category);
+    generatedOutputs.route = generateRouteSnippet(name, category);
+    generatedOutputs.shell = generateScaffoldScript(ns, name, category);
 
     showActiveTab();
 }
@@ -611,7 +613,7 @@ function copyOutput() {
 // ============================================================
 // Python scaffold script generator
 // ============================================================
-function generateScaffoldScript(ns, name) {
+function generateScaffoldScript(ns, name, category) {
     var viewDir = 'Views/' + name + 'Views';
     var vmDir = 'ViewModels';
     var blockStructure = JSON.stringify(collectBlockStructure(), null, 2);
