@@ -1,83 +1,88 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>XAML Blockly Generator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/blockly/9.3.3/blockly_compressed.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/blockly/9.3.3/blocks_compressed.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/blockly/9.3.3/msg/en.js"></script>
-    <link href="./style.css" rel="stylesheet"></link>
+    <link href="./style.css" rel="stylesheet">
+    </link>
 </head>
+
 <body>
 
-<div class="header">
-  <h1>XAML Blockly Generator</h1>
-  <div class="field-group">
-    <label>Namespace</label>
-    <input id="ns" value="Project_Base_Name">
-  </div>
-  <div class="field-group">
-    <label>View Name</label>
-    <input id="vname" value="Organization">
-  </div>
-  <div class="field-group">
-    <label>Category</label>
-    <input id="category" value="Organization">
-  </div>
-  <button class="btn-gen" onclick="generate()">Generate All</button>
-</div>
-
-<div class="main">
-  <div id="blocklyArea">
-    <div id="blocklyDiv"></div>
-  </div>
-  <div class="output-panel">
-    <div class="tab-bar" id="tabBar">
-      <button class="tab-btn active" data-tab="xaml">View.xaml</button>
-      <button class="tab-btn" data-tab="codebehind">View.xaml.cs</button>
-      <button class="tab-btn" data-tab="viewmodel">ViewModel.cs</button>
-      <button class="tab-btn" data-tab="di">MauiProgram</button>
-      <button class="tab-btn" data-tab="route">AppShell</button>
-      <button class="tab-btn" data-tab="shell">Shell Script</button>
+    <div class="header">
+        <h1>XAML Blockly Generator</h1>
+        <div class="field-group">
+            <label>Namespace</label>
+            <input id="ns" value="Project_Base_Name">
+        </div>
+        <div class="field-group">
+            <label>View Name</label>
+            <input id="vname" value="Organization">
+        </div>
+        <div class="field-group">
+            <label>Category</label>
+            <input id="category" value="Organization">
+        </div>
+        <button class="btn-gen" onclick="generate()">Generate All</button>
     </div>
-    <div class="output-header">
-      <span id="fileNameLabel">--</span>
-      <button class="output-copy-btn" onclick="copyOutput()">Copy</button>
+
+    <div class="main">
+        <div id="blocklyArea">
+            <div id="blocklyDiv"></div>
+        </div>
+        <div id="resizeHandle"></div>
+        <div class="output-panel">
+            <div class="tab-bar" id="tabBar">
+                <button class="tab-btn active" data-tab="shell">Shell Script</button>
+                <button class="tab-btn" data-tab="xaml">View.xaml</button>
+                <button class="tab-btn" data-tab="codebehind">View.xaml.cs</button>
+                <button class="tab-btn" data-tab="viewmodel">ViewModel.cs</button>
+                <button class="tab-btn" data-tab="di">MauiProgram</button>
+                <button class="tab-btn" data-tab="route">AppShell</button>
+            </div>
+            <div class="output-header">
+                <span id="fileNameLabel">--</span>
+                <button class="output-copy-btn" onclick="copyOutput()">Copy</button>
+            </div>
+            <pre id="output">Click "Generate All" after adding blocks</pre>
+        </div>
     </div>
-    <pre id="output">-- Click "Generate All" after adding blocks --</pre>
-  </div>
-</div>
 
-<xml xmlns="https://developers.google.com/blockly/xml" id="toolbox" style="display:none">
-  <category name="Navigation" colour="20">
-    <block type="xaml_chevron_nav_button"></block>
-    <block type="xaml_dashboard_tabs"></block>
-  </category>
-  <category name="Layout" colour="42">
-    <block type="xaml_divider"></block>
-    <block type="xaml_section_label"></block>
-  </category>
-  <category name="Buttons" colour="170">
-    <block type="xaml_primary_button"></block>
-    <block type="xaml_secondary_button"></block>
-    <block type="xaml_disable_button"></block>
-    <block type="xaml_text_link_button"></block>
-  </category>
-  <category name="Badges" colour="330">
-    <block type="xaml_status_badge"></block>
-    <block type="xaml_status_badge_row"></block>
-  </category>
-  <category name="Components" colour="195">
-    <block type="xaml_dropdown"></block>
-    <block type="xaml_locker_location_grid"></block>
-    <block type="xaml_locker_list_item"></block>
-    <block type="xaml_tag_bar"></block>
-  </category>
-  <category name="Input" colour="150">
-    <block type="xaml_text_entry"></block>
-  </category>
-</xml>
+    <xml xmlns="https://developers.google.com/blockly/xml" id="toolbox" style="display:none">
+        <category name="Navigation" colour="20">
+            <block type="xaml_chevron_nav_button"></block>
+            <block type="xaml_dashboard_tabs"></block>
+        </category>
+        <category name="Layout" colour="42">
+            <block type="xaml_divider"></block>
+            <block type="xaml_section_label"></block>
+        </category>
+        <category name="Buttons" colour="170">
+            <block type="xaml_primary_button"></block>
+            <block type="xaml_secondary_button"></block>
+            <block type="xaml_disable_button"></block>
+            <block type="xaml_text_link_button"></block>
+        </category>
+        <category name="Badges" colour="330">
+            <block type="xaml_status_badge"></block>
+            <block type="xaml_status_badge_row"></block>
+        </category>
+        <category name="Components" colour="195">
+            <block type="xaml_dropdown"></block>
+            <block type="xaml_locker_location_grid"></block>
+            <block type="xaml_locker_list_item"></block>
+            <block type="xaml_tag_bar"></block>
+        </category>
+        <category name="Input" colour="150">
+            <block type="xaml_text_entry"></block>
+        </category>
+    </xml>
 
-<script src = "./main.js"></script>
+    <script src="./main.js"></script>
 </body>
+
 </html>
