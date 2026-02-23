@@ -55,10 +55,12 @@ Blockly.Blocks['xaml_secondary_button'] = {
         this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(170);
     }
 };
+// CHANGED: Added COMMAND field to DisableButton
 Blockly.Blocks['xaml_disable_button'] = {
     init: function () {
         this.appendDummyInput().appendField('DisableButton');
         this.appendDummyInput().appendField('  Text:').appendField(new Blockly.FieldTextInput('Disabled'), 'TEXT');
+        this.appendDummyInput().appendField('  Command (opt):').appendField(new Blockly.FieldTextInput(''), 'COMMAND');
         this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(170);
     }
 };
@@ -174,8 +176,12 @@ var xamlGen = {
         if (cmd) attrs += ' Command="{Binding ' + cmd + 'Command}"';
         return '<genericbuttons:SecondaryButton ' + attrs + ' />';
     },
+    // CHANGED: DisableButton now supports Command
     xaml_disable_button: function (b) {
-        return '<genericbuttons:DisableButton Text="' + b.getFieldValue('TEXT') + '" />';
+        var cmd = b.getFieldValue('COMMAND');
+        var attrs = 'Text="' + b.getFieldValue('TEXT') + '"';
+        if (cmd) attrs += ' Command="{Binding ' + cmd + 'Command}"';
+        return '<genericbuttons:DisableButton ' + attrs + ' />';
     },
     xaml_text_link_button: function (b) {
         var cmd = b.getFieldValue('COMMAND');
@@ -254,10 +260,11 @@ onResize();
 var activeTab = 'xaml';
 var generatedOutputs = {};
 
+// CHANGED: fileNameMap now uses category for folder paths
 var fileNameMap = {
-    xaml: function (n) { return n + 'View.xaml'; },
-    codebehind: function (n) { return n + 'View.xaml.cs'; },
-    viewmodel: function (n) { return 'ViewModels/' + n + 'ViewModel.cs'; },
+    xaml: function (n, c) { return 'Views/' + c + '/' + n + 'Views/' + n + 'View.xaml'; },
+    codebehind: function (n, c) { return 'Views/' + c + '/' + n + 'Views/' + n + 'View.xaml.cs'; },
+    viewmodel: function (n, c) { return 'ViewModels/' + c + '/' + n + 'ViewModel.cs'; },
     di: function () { return 'MauiProgram.cs (snippet)'; },
     route: function () { return 'AppShell.xaml.cs (snippet)'; },
     shell: function (n) { return 'scaffold_' + n + '.py'; }
@@ -273,7 +280,9 @@ document.getElementById('tabBar').addEventListener('click', function (e) {
 
 function showActiveTab() {
     var name = document.getElementById('vname').value;
-    var label = fileNameMap[activeTab] ? fileNameMap[activeTab](name) : '';
+    var category = document.getElementById('category').value;
+    var fn = fileNameMap[activeTab];
+    var label = fn ? fn(name, category) : '';
     document.getElementById('fileNameLabel').textContent = label;
     document.getElementById('output').textContent = generatedOutputs[activeTab] || '-- not generated yet --';
 }
@@ -313,7 +322,8 @@ function collectBlockData() {
                 var binding = block.getFieldValue('BINDING');
                 if (binding) data.entries.push(binding);
             }
-            var cmdTypes = ['xaml_primary_button', 'xaml_secondary_button', 'xaml_text_link_button'];
+            // CHANGED: Added xaml_disable_button to command-collecting types
+            var cmdTypes = ['xaml_primary_button', 'xaml_secondary_button', 'xaml_text_link_button', 'xaml_disable_button'];
             if (cmdTypes.indexOf(block.type) !== -1) {
                 var cmd = block.getFieldValue('COMMAND');
                 if (cmd) data.commands.push(cmd);
@@ -371,6 +381,7 @@ function toCamel(str) {
 
 // ============================================================
 // Generate View.xaml
+// CHANGED: x:Class uses category in namespace path
 // ============================================================
 function generateXaml(ns, name, parts, category) {
     var components = parts.join('\n                ');
@@ -386,7 +397,7 @@ function generateXaml(ns, name, parts, category) {
         '             xmlns:textbox="clr-namespace:' + ns + '.Resources.Components.TextBox"\n' +
         '             Shell.NavBarIsVisible="False"\n' +
         '             NavigationPage.HasNavigationBar="False"\n' +
-        '             x:Class="' + ns + '.Views.' + name + 'Views.' + name + 'View"\n' +
+        '             x:Class="' + ns + '.Views.' + category + '.' + name + 'Views.' + name + 'View"\n' +
         '             BackgroundColor="#FAFAFA">\n\n' +
         '    <ScrollView>\n' +
         '        <VerticalStackLayout>\n' +
@@ -404,10 +415,14 @@ function generateXaml(ns, name, parts, category) {
 
 // ============================================================
 // Generate View.xaml.cs
+// CHANGED: DI constructor (accepts ViewModel), category in namespace
 // ============================================================
 function generateCodeBehind(ns, name, bd, category) {
     var lines = [];
-    var imports = ['using System.Diagnostics;'];
+    var imports = [
+        'using System.Diagnostics;',
+        'using ' + ns + '.ViewModels.' + category + ';'
+    ];
 
     if (bd.tagBars.length > 0) {
         imports.push('using ' + ns + '.Resources.Components.Buttons;');
@@ -415,15 +430,16 @@ function generateCodeBehind(ns, name, bd, category) {
 
     lines.push(imports.join('\n'));
     lines.push('');
-    lines.push('namespace ' + ns + '.Views.' + name + 'Views;');
+    lines.push('namespace ' + ns + '.Views.' + category + '.' + name + 'Views;');
     lines.push('');
     lines.push('public partial class ' + name + 'View : ContentPage');
     lines.push('{');
 
-    // Constructor - parameterless
-    lines.push('    public ' + name + 'View()');
+    // CHANGED: DI constructor - accepts ViewModel, sets BindingContext
+    lines.push('    public ' + name + 'View(' + name + 'ViewModel viewModel)');
     lines.push('    {');
     lines.push('        InitializeComponent();');
+    lines.push('        BindingContext = viewModel;');
 
     // TagBar setup in constructor
     bd.tagBars.forEach(function (tb) {
@@ -480,6 +496,7 @@ function generateCodeBehind(ns, name, bd, category) {
 
 // ============================================================
 // Generate ViewModel.cs (MVVM Community Toolkit)
+// CHANGED: namespace uses category folder
 // ============================================================
 function generateViewModel(ns, name, bd, category) {
     var lines = [];
@@ -491,7 +508,7 @@ function generateViewModel(ns, name, bd, category) {
         lines.push('using System.Collections.ObjectModel;');
     }
     lines.push('');
-    lines.push('namespace ' + ns + '.ViewModels;');
+    lines.push('namespace ' + ns + '.ViewModels.' + category + ';');
     lines.push('');
     lines.push('public partial class ' + name + 'ViewModel : ObservableObject');
     lines.push('{');
@@ -549,20 +566,22 @@ function generateViewModel(ns, name, bd, category) {
 
 // ============================================================
 // DI snippet
+// CHANGED: Uses category in fully-qualified paths
 // ============================================================
 function generateDiSnippet(ns, name, category) {
     return '// Add to ConfigureServices in MauiProgram.cs\n' +
-        'builder.Services.AddTransient<' + ns + '.Views.' + name + 'Views.' + name + 'View>();\n' +
-        'builder.Services.AddTransient<' + ns + '.ViewModels.' + name + 'ViewModel>();';
+        'builder.Services.AddTransient<' + ns + '.Views.' + category + '.' + name + 'Views.' + name + 'View>();\n' +
+        'builder.Services.AddTransient<' + ns + '.ViewModels.' + category + '.' + name + 'ViewModel>();';
 }
 
 
 // ============================================================
 // Route snippet
+// CHANGED: Uses category in type path
 // ============================================================
 function generateRouteSnippet(name, category) {
     return '// Add to AppShell constructor\n' +
-        'Routing.RegisterRoute("' + name + 'View", typeof(Views.' + name + 'Views.' + name + 'View));';
+        'Routing.RegisterRoute("' + name + 'View", typeof(Views.' + category + '.' + name + 'Views.' + name + 'View));';
 }
 
 
@@ -612,10 +631,11 @@ function copyOutput() {
 
 // ============================================================
 // Python scaffold script generator
+// CHANGED: Uses category in directory paths for both Views and ViewModels
 // ============================================================
 function generateScaffoldScript(ns, name, category) {
-    var viewDir = 'Views/' + name + 'Views';
-    var vmDir = 'ViewModels';
+    var viewDir = 'Views/' + category + '/' + name + 'Views';
+    var vmDir = 'ViewModels/' + category;
     var blockStructure = JSON.stringify(collectBlockStructure(), null, 2);
 
     var safeXaml = generatedOutputs.xaml.replace(/"""/g, '""\\"');
@@ -667,8 +687,8 @@ function generateScaffoldScript(ns, name, category) {
         '    print(f"INJECTED into {filepath}")',
         '    return True',
         '',
-        'di_line = "        builder.Services.AddTransient<' + ns + '.Views.' + name + 'Views.' + name + 'View>();\\n        builder.Services.AddTransient<' + ns + '.ViewModels.' + name + 'ViewModel>();"',
-        'route_line = \'        Routing.RegisterRoute("' + name + 'View", typeof(Views.' + name + 'Views.' + name + 'View));\'',
+        'di_line = "        builder.Services.AddTransient<' + ns + '.Views.' + category + '.' + name + 'Views.' + name + 'View>();\\n        builder.Services.AddTransient<' + ns + '.ViewModels.' + category + '.' + name + 'ViewModel>();"',
+        'route_line = \'        Routing.RegisterRoute("' + name + 'View", typeof(Views.' + category + '.' + name + 'Views.' + name + 'View));\'',
         '',
         'inject_after_marker("MauiProgram.cs", "// Add services here:", di_line)',
         'inject_after_marker("AppShell.xaml.cs", "// Add route here:", route_line)',
@@ -771,4 +791,3 @@ document.addEventListener('mouseup', () => {
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
 });
-
