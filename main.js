@@ -257,7 +257,7 @@ onResize();
 // ============================================================
 // Tab system
 // ============================================================
-var activeTab = 'xaml';
+var activeTab = 'shell';
 var generatedOutputs = {};
 
 // CHANGED: fileNameMap now uses category for folder paths
