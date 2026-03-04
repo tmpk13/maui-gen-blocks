@@ -791,3 +791,108 @@ document.addEventListener('mouseup', () => {
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
 });
+
+// ============================================================
+// Batch Import → Zip of .py scaffold scripts
+// ============================================================
+function parseBatchJson(text, filename) {
+    var parsed = JSON.parse(text);
+    var name, category, blocks;
+
+    if (Array.isArray(parsed)) {
+        // Backwards compatible: bare array of blocks
+        blocks = parsed;
+        // Derive name from filename: "Category_Name.blocks.json" or "Name.blocks.json"
+        var base = filename.replace(/\.blocks\.json$/i, '').replace(/\.json$/i, '');
+        var parts = base.split('_');
+        if (parts.length >= 2) {
+            category = parts[0];
+            name = parts.slice(1).join('_');
+        } else {
+            name = base;
+            category = document.getElementById('category').value; // fallback to UI
+        }
+    } else {
+        // New format: { name, category, blocks }
+        blocks = parsed.blocks;
+        name = parsed.name || filename.replace(/\.blocks\.json$/i, '').replace(/\.json$/i, '');
+        category = parsed.category || document.getElementById('category').value;
+    }
+
+    return { name: name, category: category, blocks: blocks };
+}
+
+async function batchImport(files) {
+    if (!files || files.length === 0) return;
+
+    var ns = document.getElementById('ns').value;
+    var zip = new JSZip();
+    var count = 0;
+
+    for (var i = 0; i < files.length; i++) {
+        var text = await files[i].text();
+        try {
+            var info = parseBatchJson(text, files[i].name);
+
+            // Load blocks into workspace
+            workspace.clear();
+            var prevBlock = null;
+            info.blocks.forEach(function (entry) {
+                if (!Blockly.Blocks[entry.type]) return;
+                var block = workspace.newBlock(entry.type);
+                Object.keys(entry.fields).forEach(function (key) {
+                    try { block.setFieldValue(entry.fields[key], key); } catch (e) { }
+                });
+                block.initSvg();
+                block.render();
+                if (prevBlock) {
+                    prevBlock.nextConnection.connect(block.previousConnection);
+                } else {
+                    block.moveBy(50, 50);
+                }
+                prevBlock = block;
+            });
+
+            // Set UI fields temporarily for generation
+            var origName = document.getElementById('vname').value;
+            var origCat = document.getElementById('category').value;
+            document.getElementById('vname').value = info.name;
+            document.getElementById('category').value = info.category;
+
+            // Generate all outputs (populates generatedOutputs)
+            generate();
+
+            // Collect the .py script
+            var pyContent = generatedOutputs.shell;
+            if (pyContent) {
+                zip.file('scaffold_' + info.name + '.py', pyContent);
+                count++;
+            }
+
+            // Restore UI fields
+            document.getElementById('vname').value = origName;
+            document.getElementById('category').value = origCat;
+
+        } catch (e) {
+            console.error('Failed to process ' + files[i].name + ':', e);
+        }
+    }
+
+    if (count === 0) {
+        alert('No valid files processed.');
+        return;
+    }
+
+    // Download zip
+    var blob = await zip.generateAsync({ type: 'blob' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'scaffold_scripts.zip';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    // Reset file input
+    document.getElementById('batchInput').value = '';
+    alert(count + ' script(s) zipped and downloaded.');
+}
