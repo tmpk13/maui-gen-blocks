@@ -28,6 +28,8 @@
             <input id="category" value="Organization">
         </div>
         <button class="btn-gen" onclick="generate()">Generate All</button>
+        <button onclick="document.getElementById('batchInput').click()">Batch Import</button>
+        <input type="file" id="batchInput" multiple accept=".json" style="display:none" onchange="batchImport(this.files)">
     </div>
 
     <div class="main">
